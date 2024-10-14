@@ -1,7 +1,9 @@
 package main
 
+import "core:bufio"
 import "core:fmt"
 import "core:math"
+import "core:os"
 import rl "vendor:raylib"
 
 SCREEN_WIDTH :: 64
@@ -34,8 +36,9 @@ decode :: proc(self: ^Emulator) -> (inst, X, Y, N, NN: u8, NNN: u16) {
 	inst = (b0 & 0xF0) >> 4
 	X = (b0 & 0x0F)
 	Y = (b1 & 0xF0) >> 4
-	NN = (b1 & 0x0F)
-	NNN = cast(u16)X << 8 | cast(u16)NN
+	N = (b1 & 0x0F)
+	NN = (b1)
+	NNN = (cast(u16)X << 8) | cast(u16)NN
 	return
 }
 
@@ -46,27 +49,21 @@ execute :: proc(self: ^Emulator) {
 	case 0x0:
 		switch Y {
 		case 0xE:
-			switch NN {
+			switch N {
 			case 0x0:
-				for x := 0; x < SCREEN_HEIGHT; x += 1 {
-					for y := 0; y < SCREEN_WIDTH; y += 1 {
-						self.screen[x][y] = 0
-					}
-				}
+				self.screen = [64][32]int{}
 			}
-		case 0x1:
-			self.pc = NNN
-		case 0x6:
-			self.registers[X] = NN
-		case 0x7:
-			self.registers[X] += NN
-		case 0xA:
-			self.I = NNN
-		case 0xD:
-			drawSprite(self, X, Y, N)
-		case:
-			fmt.printf("Unhandled op %v \n", inst)
 		}
+	case 0x1:
+		self.pc = NNN
+	case 0x6:
+		self.registers[X] = NN
+	case 0x7:
+		self.registers[X] += NN
+	case 0xA:
+		self.I = NNN
+	case 0xD:
+		drawSprite(self, self.registers[X], self.registers[Y], N)
 	}
 }
 
@@ -90,7 +87,7 @@ drawSprite :: proc(self: ^Emulator, VX, VY, N: u8) {
 	self.registers[0xF] = 0
 	for row := 0; row < cast(int)N; row += 1 {
 		spriteByte: u8 = self.memory[cast(int)self.I + row]
-		for col := 0; col < cast(int)N; col += 1 {
+		for col := 0; col < 8; col += 1 {
 			if spriteByte & (0x80 >> cast(u8)col) != 0 {
 				pixelX := (x + cast(u8)col) % cast(u8)SCREEN_WIDTH
 				pixelY := (y + cast(u8)row) % cast(u8)SCREEN_HEIGHT
@@ -101,15 +98,38 @@ drawSprite :: proc(self: ^Emulator, VX, VY, N: u8) {
 				self.screen[pixelX][pixelY] ~= 1
 			}
 		}
-
 	}
+
+	draw(self)
+}
+
+
+loadRom :: proc(self: ^Emulator, filename: string) -> int {
+	data, ok := os.read_entire_file(filename, context.allocator)
+	if !ok {
+		return -1
+	}
+	defer delete(data, context.allocator)
+
+	for byte, i in data {
+		self.memory[i + 0x200] = cast(u8)byte
+	}
+
+	return 0
 }
 
 main :: proc() {
 	emulator: ^Emulator = new(Emulator)
+	emulator.pc = MEMORY_OFFSET
 
 	rl.InitWindow(SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE, "Chip8-Interpreter-Odin")
 	rl.SetTargetFPS(60)
+
+	if err := loadRom(emulator, "./ibm_logo.ch8"); err != 0 {
+		// return the number read actually
+		panic("Could not read from the ROM")
+	}
+
 
 	image = rl.GenImageColor(SCREEN_WIDTH, SCREEN_HEIGHT, rl.BLACK)
 	texture = rl.LoadTextureFromImage(image)
@@ -118,7 +138,7 @@ main :: proc() {
 	rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
 
 	cam: rl.Camera3D = rl.Camera3D {
-		position   = rl.Vector3{0.0, 2.0, 10.0},
+		position   = rl.Vector3{4.0, 2.0, 10.0},
 		target     = rl.Vector3{0.0, 0.0, 0.0},
 		up         = rl.Vector3{0.0, 1.0, 0.0},
 		fovy       = 60.0,
@@ -133,6 +153,7 @@ main :: proc() {
 		rl.BeginMode3D(cam)
 		execute(emulator)
 		rl.UpdateTexture(texture, rl.LoadImageColors(image))
+
 		rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
 		rl.DrawCube(rl.Vector3{0, 0, -1}, 15, 9, 1, rl.DARKGRAY)
 		rl.DrawMesh(
