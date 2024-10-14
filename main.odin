@@ -70,14 +70,28 @@ execute :: proc(self: ^Emulator) {
 	}
 }
 
+image: rl.Image
+texture: rl.Texture2D
+
+draw :: proc(self: ^Emulator) {
+	for x := 0; x < SCREEN_WIDTH; x += 1 {
+		for y := 0; y < SCREEN_HEIGHT; y += 1 {
+			if (self.screen[x][y] > 0) {
+				rl.ImageDrawPixel(&image, cast(i32)x, cast(i32)y, rl.WHITE)
+			}
+		}
+	}
+}
+
+
 main :: proc() {
 	emulator: ^Emulator = new(Emulator)
 
 	rl.InitWindow(SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE, "Chip8-Interpreter-Odin")
 	rl.SetTargetFPS(60)
 
-	image := rl.GenImageColor(SCREEN_WIDTH, SCREEN_HEIGHT, rl.BLACK)
-	texture := rl.LoadTextureFromImage(image)
+	image = rl.GenImageColor(SCREEN_WIDTH, SCREEN_HEIGHT, rl.BLACK)
+	texture = rl.LoadTextureFromImage(image)
 	plane_mesh := rl.GenMeshPlane(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1)
 	material := rl.LoadMaterialDefault()
 	rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
