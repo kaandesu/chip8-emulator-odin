@@ -5,7 +5,7 @@ build:
 	odin build . -out:main
 
 run:
-	odin run .
+	@odin run . -out:main
 
 clean:
 	rm -f main
