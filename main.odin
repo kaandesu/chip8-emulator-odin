@@ -63,7 +63,7 @@ execute :: proc(self: ^Emulator) {
 		case 0xA:
 			self.I = NNN
 		case 0xD:
-		// TODO: add drawSprite
+			drawSprite(self, X, Y, N)
 		case:
 			fmt.printf("Unhandled op %v \n", inst)
 		}
@@ -83,6 +83,27 @@ draw :: proc(self: ^Emulator) {
 	}
 }
 
+
+drawSprite :: proc(self: ^Emulator, VX, VY, N: u8) {
+	x := VX % SCREEN_WIDTH
+	y := VY % SCREEN_HEIGHT
+	self.registers[0xF] = 0
+	for row := 0; row < cast(int)N; row += 1 {
+		spriteByte: u8 = self.memory[cast(int)self.I + row]
+		for col := 0; col < cast(int)N; col += 1 {
+			if spriteByte & (0x80 >> cast(u8)col) != 0 {
+				pixelX := (x + cast(u8)col) % cast(u8)SCREEN_WIDTH
+				pixelY := (y + cast(u8)row) % cast(u8)SCREEN_HEIGHT
+				if self.screen[pixelX][pixelY] == 1 {
+					self.registers[0xF] = 1
+				}
+
+				self.screen[pixelX][pixelY] ~= 1
+			}
+		}
+
+	}
+}
 
 main :: proc() {
 	emulator: ^Emulator = new(Emulator)
@@ -110,7 +131,7 @@ main :: proc() {
 		rl.ClearBackground(rl.GRAY)
 		rl.DrawText("Chip8-Interpreter-Odin", 10, 10, 10, rl.WHITE)
 		rl.BeginMode3D(cam)
-
+		execute(emulator)
 		rl.UpdateTexture(texture, rl.LoadImageColors(image))
 		rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
 		rl.DrawCube(rl.Vector3{0, 0, -1}, 15, 9, 1, rl.DARKGRAY)
