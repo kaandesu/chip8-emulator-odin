@@ -1,5 +1,6 @@
 package main
 
+import "core:fmt"
 import "core:math"
 import rl "vendor:raylib"
 
@@ -36,6 +37,37 @@ decode :: proc(self: ^Emulator) -> (inst, X, Y, N, NN: u8, NNN: u16) {
 	NN = (b1 & 0x0F)
 	NNN = cast(u16)X << 8 | cast(u16)NN
 	return
+}
+
+execute :: proc(self: ^Emulator) {
+	inst, X, Y, N, NN, NNN := decode(self)
+
+	switch inst {
+	case 0x0:
+		switch Y {
+		case 0xE:
+			switch NN {
+			case 0x0:
+				for x := 0; x < SCREEN_HEIGHT; x += 1 {
+					for y := 0; y < SCREEN_WIDTH; y += 1 {
+						self.screen[x][y] = 0
+					}
+				}
+			}
+		case 0x1:
+			self.pc = NNN
+		case 0x6:
+			self.registers[X] = NN
+		case 0x7:
+			self.registers[X] += NN
+		case 0xA:
+			self.I = NNN
+		case 0xD:
+		// TODO: add drawSprite
+		case:
+			fmt.printf("Unhandled op %v \n", inst)
+		}
+	}
 }
 
 main :: proc() {
