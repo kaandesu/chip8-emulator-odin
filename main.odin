@@ -122,8 +122,16 @@ main :: proc() {
 	emulator: ^Emulator = new(Emulator)
 	emulator.pc = MEMORY_OFFSET
 
-	rl.InitWindow(SCREEN_WIDTH * SCALE, SCREEN_HEIGHT * SCALE, "Chip8-Interpreter-Odin")
+	rl.InitWindow(1280, 640, "Chip8-Interpreter-Odin")
 	rl.SetTargetFPS(60)
+
+	retroPc := rl.LoadModel("./models/retro_electronics_retro_pc.glb")
+	desk := rl.LoadModel("./models/office.glb")
+	rot := rl.Vector3{90 * rl.DEG2RAD, 0, 0}
+	retroPc.transform = rl.MatrixRotateXYZ(rot)
+	desk.transform = rl.MatrixRotateXYZ(
+		rl.Vector3{90 * rl.DEG2RAD, 0 * rl.DEG2RAD, 135 * rl.DEG2RAD},
+	)
 
 	if err := loadRom(emulator, "./ibm_logo.ch8"); err != 0 {
 		// return the number read actually
@@ -136,31 +144,31 @@ main :: proc() {
 	plane_mesh := rl.GenMeshPlane(SCREEN_WIDTH, SCREEN_HEIGHT, 1, 1)
 	material := rl.LoadMaterialDefault()
 	rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
+	plane_model := rl.LoadModelFromMesh(plane_mesh)
+
+	plane_model.transform = (rl.MatrixRotateX(math.PI / 2) * rl.MatrixScale(0.2, 0.2, 0.2))
 
 	cam: rl.Camera3D = rl.Camera3D {
-		position   = rl.Vector3{4.0, 2.0, 10.0},
-		target     = rl.Vector3{0.0, 0.0, 0.0},
+		position   = rl.Vector3{1.0, 31.0, 25.0},
+		target     = rl.Vector3{0.0, 31.0, 0.0},
 		up         = rl.Vector3{0.0, 1.0, 0.0},
 		fovy       = 60.0,
 		projection = rl.CameraProjection.PERSPECTIVE,
 	}
 
 	for (!rl.WindowShouldClose()) {
-
+		rl.UpdateCamera(&cam, rl.CameraMode.FIRST_PERSON)
 		rl.BeginDrawing()
-		rl.ClearBackground(rl.GRAY)
+		rl.ClearBackground(rl.SKYBLUE)
 		rl.DrawText("Chip8-Interpreter-Odin", 10, 10, 10, rl.WHITE)
 		rl.BeginMode3D(cam)
 		execute(emulator)
 		rl.UpdateTexture(texture, rl.LoadImageColors(image))
-
-		rl.SetMaterialTexture(&material, rl.MaterialMapIndex.ALBEDO, texture)
-		rl.DrawCube(rl.Vector3{0, 0, -1}, 15, 9, 1, rl.DARKGRAY)
-		rl.DrawMesh(
-			plane_mesh,
-			material,
-			(rl.MatrixRotateX(math.PI / 2) * rl.MatrixScale(0.2, 0.2, 0.2)),
-		)
+		rl.SetMaterialTexture(&plane_model.materials[0], rl.MaterialMapIndex.ALBEDO, texture)
+		rl.DrawPlane(rl.Vector3{0, 0, 0}, 200, rl.DARKGRAY)
+		rl.DrawModel(desk, rl.Vector3{0, 0.1, 20}, 0.0055, rl.WHITE)
+		rl.DrawModel(retroPc, rl.Vector3{0, 18.6, -4.5}, 6.5, rl.WHITE)
+		rl.DrawModel(plane_model, rl.Vector3{0, 31.1, 0}, 1, rl.WHITE)
 		rl.EndMode3D()
 		rl.EndDrawing()
 	}
